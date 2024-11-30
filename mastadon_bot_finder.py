@@ -9,41 +9,53 @@ def read_xlsx(path):
     accounts = {}
 
     workbook = openpyxl.load_workbook(path)
-    sheet = workbook.active
+    for sheet in workbook.worksheets:#sheet = workbook.active
+        row_len = sheet.max_row
+        col_len = sheet.max_column
 
-    row_len = sheet.max_row
-    col_len = sheet.max_column
+        for row_i in range(2, row_len + 1):
+            post = {}
+            user = sheet.cell(row = row_i, column = 4).value
 
-    for row_i in range(2, row_len + 1):
-        post = {}
-        user = sheet.cell(row = row_i, column = 4).value
+            if user not in accounts:
+                accounts[user] = []
 
-        if user not in accounts:
-            accounts[user] = []
-
-        for col_j in range(1, col_len + 1):
-            key = sheet.cell(row = 1, column = col_j).value
-            val = sheet.cell(row = row_i, column = col_j).value
-            post[key] = val
-        accounts[user].append(post)
-
+            for col_j in range(1, col_len + 1):
+                key = sheet.cell(row = 1, column = col_j).value
+                val = sheet.cell(row = row_i, column = col_j).value
+                post[key] = val
+            accounts[user].append(post)
     return accounts
 
 def find_bots(accounts):
-    criteria=[]
-    scrambled_names = []
+    scrambled_names, freq_pstr, spams_hstgs = set(), set(), set()
 
     for user in accounts:
         author = (accounts[user])[0]
-        if user not in scrambled_names and is_alnum_scrmbl(author['author'], author['language']):
-            scrambled_names.append(author['author'])
 
-        #for post in accounts[user]:
+        if user not in scrambled_names and is_alphanum_scrmbl(author['author'], author['language']):
+            scrambled_names.add(author['author'])
 
-    bots = []
-    return scrambled_names
+        if user not in freq_pstr and len(accounts[user]) > 3:
+            dates = {}
 
-def is_alnum_scrmbl(author='', lang=''):
+            for post in accounts[user]:
+                date_time = post['date'].split('T')
+
+                date = date_time[0]
+                time = (date_time[1]).split(':')[0]
+                if date not in dates:
+                    dates[date] = []
+                (dates[date]).append(time)
+
+            if posts_frequently(dates):
+                freq_pstr.add(author['author'])
+
+    #criteria =
+    bots = scrambled_names.intersection(freq_pstr) #[user for user in accounts if ]
+    return bots
+
+def is_alphanum_scrmbl(author='', lang=''):
     if lang != 'en': return False
 
     author = author.replace('-', "_")
@@ -58,8 +70,6 @@ def is_alnum_scrmbl(author='', lang=''):
                 name_parts = name_parts[:i] + name_parts[i + 1:] + multi_cased
     name_parts = list(filter(lambda wrd: len(wrd) > 1 or str(wrd).isdigit(), name_parts))
 
-    print(name_parts)
-
     digits = "0123456789"
     checker = SpellChecker(distance=2)
     if len(name_parts) > 1: # check if there are discernible parts in the author name
@@ -73,7 +83,7 @@ def is_alnum_scrmbl(author='', lang=''):
                 return (wrd_is_nme or word not in checker.unknown([word])) and not any(char.isdigit() for char in word)
             elif (word.isdigit() and len(word) > 1 and len(unknowns) > 1) or (not word.isalnum()) or (not wrd_is_nme and word in unknowns):
                 return True
-    else:
+    elif len(name_parts) == 1:
         word = name_parts[0].strip(digits).lower()
         if any(char.isdigit() for char in word): return True
 
@@ -81,33 +91,44 @@ def is_alnum_scrmbl(author='', lang=''):
         if wrd_is_nme or word not in checker.unknown([word]):
             return False
 
-        i = 1
+        i = 2
         while i < len(word):
             str1, str2 = word[:i], word[i:]
             unknowns = checker.unknown([str1, str2])
 
             str1_candidates = [nd.search(str1)[key] for key in ["first_name", "last_name"]]
-            str2_candidates =  [nd.search(str2)[key] for key in ["first_name", "last_name"]]
+            str2_candidates = [nd.search(str2)[key] for key in ["first_name", "last_name"]]
 
             str1_is_name = str1_candidates.count(None) != 2
             str2_is_name = str2_candidates.count(None) != 2
 
             str1_rank = list(filter(None, [list(filter(None, dic['rank'].values())) for dic in str1_candidates if dic is not None and str1_is_name]))
-            str1_rank = max([j for i in str1_rank for j in i]) if len(str1_rank) > 0 else 1001
+            str1_rank = min([j for i in str1_rank for j in i]) if len(str1_rank) > 0 else 1001
 
             str2_rank = list(filter(None, [list(filter(None, dic['rank'].values())) for dic in str2_candidates if dic is not None and str2_is_name]))
-            str2_rank = max([j for i in str2_rank for j in i]) if len(str2_rank) > 0 else 1001
+            str2_rank = min([j for i in str2_rank for j in i]) if len(str2_rank) > 0 else 1001
 
-            str1_valid = ((str1_is_name and str1_rank < 1000) or not str1 in unknowns) and len(str1) > 1
-            str2_valid = ((str2_is_name and str2_rank < 1000) or not str2 in unknowns) and len(str2) > 1
+            str1_valid = (str1_is_name and str1_rank < 1000 and len(str1) > 2) or (str1 not in unknowns and len(str1) > 1)
+            str2_valid = (str2_is_name and str2_rank < 1000 and len(str2) > 2) or (str2 not in unknowns and len(str2) > 1)
 
             if str1_valid and str2_valid:
                 return False
             elif str1_valid and not str2_valid:
-                i = 1
                 word = str2
-            i += 1
+                i = 2
+            else:
+                i += 1
         return True
+    return False
+
+def posts_frequently(dates):
+    for date in dates:
+        if len(dates[date]) >= 5: # 5 or more posts is frequent
+            return True
+        else: # check if the user has posted frequently
+            for time in dates[date]:
+                if dates[date].count(time) >= 2:
+                    return True
     return False
 
 def frequent_hashtags(posts=None):
@@ -118,6 +139,7 @@ def frequent_hashtags(posts=None):
 def main():
     path = "/home/ybrenin/PycharmProjects/IGS_502_Mastadon_Bot_Finder/data/defundthepolice-full.xlsx"
     account_list = read_xlsx(path)
+    print(len(account_list))
     test = account_list['Natalia_Army_of_1@mstdn.party']
 
     #print(test)
