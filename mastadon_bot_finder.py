@@ -78,7 +78,7 @@ def spams_hashtags(user):
     return False
 
 def main():
-    path = "/home/ybrenin/PycharmProjects/IGS_502_Mastadon_Bot_Finder/data/defundthepolice-full.xlsx"
+    path = "/data/defundthepolice-full.xlsx"
 
     account_list = read_xlsx(path)
     bots = find_bots(account_list)
