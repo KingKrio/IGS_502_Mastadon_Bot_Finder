@@ -1,17 +1,16 @@
-import re
 import openpyxl
 from spellchecker import SpellChecker
 from names_dataset import NameDataset
 from random_string_detector import RandomStringDetector
 
 nd = NameDataset()
-valid_name = RandomStringDetector(allow_numbers=True)
 checker = SpellChecker(distance=2)
+valid_name = RandomStringDetector(allow_numbers=True)
 
 def read_xlsx(path):
     accounts = {}
-
     workbook = openpyxl.load_workbook(path)
+
     for sheet in workbook.worksheets:#sheet = workbook.active
         row_len = sheet.max_row
         col_len = sheet.max_column
