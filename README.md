@@ -1,7 +1,7 @@
 ### Note: Please change the path to your file!
 
 # Example output:
-###----Potential bots based on looking for scrambled names: 
+### ----Potential bots based on looking for scrambled names: 
 - Gigi
 - keke
 - jmjm
@@ -10,10 +10,10 @@
 - nicknicknicknick
 - just1602
 
-###----Potential bots based on searching for frequent posters: 
+### ----Potential bots based on searching for frequent posters: 
 - toussaint
 
-###----Potential bots based on searching for hashtag spammers: 
+### ----Potential bots based on searching for hashtag spammers: 
 - Gigi
 - autonomysolidarity
 - herhandsmyhands
