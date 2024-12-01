@@ -1,4 +1,4 @@
-### Note: Please change the path to your file!
+### Note: You may need to change the path to the data file!
 
 # Example output:
 ### ----Potential bots based on looking for scrambled names: 
