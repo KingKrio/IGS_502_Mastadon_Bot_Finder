@@ -2,7 +2,7 @@
 
 # Example output:
 ----Potential bots based on looking for scrambled names: 
-Gigi
+- Gigi
 keke
 jmjm
 hanjabanja
