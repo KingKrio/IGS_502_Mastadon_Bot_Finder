@@ -1,8 +1,8 @@
 ### Note: You may need to change the path to the data file!
 
 # Example output:
-### Please provide the path to the file: /IGS_502_Mastadon_Bot_Finder/data/StopAsianHate-full.xlsx
-### Please provide the number of the sheet: 1
+#### Please provide the path to the file: /IGS_502_Mastadon_Bot_Finder/data/StopAsianHate-full.xlsx
+#### Please provide the number of the sheet: 1
 
 ### ----Potential bots based on looking for scrambled names: 
 - jenn6161
