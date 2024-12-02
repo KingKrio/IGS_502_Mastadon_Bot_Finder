@@ -1,100 +1,89 @@
 import openpyxl
 from spellchecker import SpellChecker
-from names_dataset import NameDataset
+import language_tool_python
 from random_string_detector import RandomStringDetector
 
-nd = NameDataset()
-checker = SpellChecker(distance=2)
-valid_name = RandomStringDetector(allow_numbers=True)
+grammar_checker = language_tool_python.LanguageTool('en-US')
+spell_checker = SpellChecker(distance=2)
+invalid_name = RandomStringDetector(allow_numbers=True)
 
-def read_xlsx(path):
+def read_xlsx(path, sheet_num):
     accounts = {}
     workbook = openpyxl.load_workbook(path)
 
-    for sheet in workbook.worksheets:#sheet = workbook.active
-        row_len = sheet.max_row
-        col_len = sheet.max_column
+    # if the number for the sheet in the workbook is invalid change the number to the last sheet in the page
+    sheet_num = sheet_num if sheet_num <= len(workbook.sheetnames) else len(workbook.sheetnames)
+    sheet = workbook[workbook.sheetnames[sheet_num - 1]]
 
-        for row_i in range(2, row_len + 1):
-            post = {}
-            user = sheet.cell(row = row_i, column = 4).value
+    row_len = sheet.max_row
+    col_len = sheet.max_column
 
-            if user not in accounts:
-                accounts[user] = []
+    for row_i in range(2, row_len + 1):
+        post = {}
+        user = sheet.cell(row = row_i, column = 4).value
 
-            for col_j in range(1, col_len + 1):
-                key = sheet.cell(row = 1, column = col_j).value
-                val = sheet.cell(row = row_i, column = col_j).value
-                post[key] = val
-            accounts[user].append(post)
+        if user not in accounts:
+            accounts[user] = []
+
+        for col_j in range(1, col_len + 1):
+            key = sheet.cell(row = 1, column = col_j).value
+            val = sheet.cell(row = row_i, column = col_j).value
+            post[key] = val
+        accounts[user].append(post)
+
     return accounts
 
 def find_bots(accounts):
-    scrambled_names, freq_pstr, hstg_spmr = set(), set(), set()
+    scrambled_names, freq_pstr, mny_mstk = set(), set(), set()
+    for acc in accounts:
+        user = accounts[acc]
+        username = (user[0])['author']
 
-    for user in accounts:
-        author = (accounts[user])[0]
-        if valid_name(author['author']):
-            scrambled_names.add(author['author'])
+        if invalid_name(username):
+            scrambled_names.add(username)
 
-        if spams_hashtags(accounts[user]):
-            hstg_spmr.add(author['author'])
+        if many_mistakes_in_text(user):
+            mny_mstk.add(username)
 
-        if posts_frequently(accounts[user]):
-           freq_pstr.add(author['author'])
-
-    return {'scrambled names': scrambled_names, 'frequent posters': freq_pstr, 'hashtag spammers': hstg_spmr}
+        if posts_frequently(user):
+           freq_pstr.add(username)
+    return {'scrambled names': scrambled_names, 'frequent posters': freq_pstr, 'many mistakes': mny_mstk}
 
 def posts_frequently(user_posts):
-    dates = {}
-
+    hours, days = [], []
     for post in user_posts:
-        date_time = post['date'].split('T')
+        days.append((post['date'].split('T'))[0]) # days
+        hours.append((post['date'].split(':'))[0]) # hours of the day
+    return (True if any(days.count(day) >= 12 for day in days) else False) or (True if any(hours.count(hour) >= 4 for hour in hours) else False)
 
-        date = date_time[0]
-        time = (date_time[1]).split(':')[0]
-        if date not in dates:
-            dates[date] = []
-        (dates[date]).append(time)
+def many_mistakes_in_text(posts):
+    for post in posts:
+        word_list = []
+        text = post['text']
+        lang = post['language']
 
-    for date in dates:
-        if len(dates[date]) >= 4: # 4 or more posts is frequent
-            for time in dates[date]:
-                if dates[date].count(time) >= 2:
-                    return True
-    return False
+        for word in text.split():
+            word_list.append(word if not any(not char.isalnum() for char in word) else None)
+        word_list = list(filter(None, word_list))
 
-def spams_hashtags(user):
-    hashtags = []
-
-    for post in user:
-        hashtag_list = list(part[1:] for part in post['text'].split() if part.startswith('#'))
-        [hashtags.append(hashtag) for hashtag in hashtag_list]
-
-    for hashtag in hashtags:#
-        if hashtags.count(hashtag) > 6:
-            return True
+        if lang is not None and lang[:2] == 'en':
+            if len(spell_checker.unknown(word_list)) >= 6 or len(grammar_checker.check(text)) >= 6:
+                return True
     return False
 
 def main():
-    path = "/data/defundthepolice-full.xlsx"
+    path = input("Please provide the path to the file: ")
+    sheet = int(input("Please provide the number of the sheet: "))
 
-    account_list = read_xlsx(path)
+    account_list = read_xlsx(path, sheet)
     bots = find_bots(account_list)
+    grammar_checker.close()
 
-    print('----Potential bots based on looking for scrambled names: ')
-    for scrambled_name in bots['scrambled names']:
-        print(scrambled_name)
+    for category in bots:
+        print('\n----Potential bots based on looking for:', category)
+        for bot in bots[category]: print(bot)
 
-    print('\n----Potential bots based on searching for frequent posters: ')
-    for frequent_poster in bots['frequent posters']:
-        print(frequent_poster)
-
-    print('\n----Potential bots based on searching for hashtag spammers: ')
-    for frequent_poster in bots['hashtag spammers']:
-        print(frequent_poster)
-
-    total_bots = len(bots['scrambled names'] | bots['frequent posters'] | bots['hashtag spammers'])
+    total_bots = len(bots['scrambled names'] | bots['frequent posters'] | bots['many mistakes'])
     print("\n----Total number of potential bots:", total_bots)
 
 main()
