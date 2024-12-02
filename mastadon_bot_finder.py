@@ -3,9 +3,9 @@ from spellchecker import SpellChecker
 import language_tool_python
 from random_string_detector import RandomStringDetector
 
-grammar_checker = language_tool_python.LanguageTool('en-US')
-spell_checker = SpellChecker(distance=2)
+spell_checker = SpellChecker(distance=4)
 invalid_name = RandomStringDetector(allow_numbers=True)
+grammar_checker = language_tool_python.LanguageTool('en-US')
 
 def read_xlsx(path, sheet_num):
     accounts = {}
@@ -15,39 +15,39 @@ def read_xlsx(path, sheet_num):
     sheet_num = sheet_num if sheet_num <= len(workbook.sheetnames) else len(workbook.sheetnames)
     sheet = workbook[workbook.sheetnames[sheet_num - 1]]
 
-    row_len = sheet.max_row
-    col_len = sheet.max_column
+    row_l = sheet.max_row
+    col_l = sheet.max_column
 
-    for row_i in range(2, row_len + 1):
+    for row_i in range(2, row_l + 1):
         post = {}
+
         user = sheet.cell(row = row_i, column = 4).value
+        accounts[user] = [] if user not in accounts else accounts[user]
 
-        if user not in accounts:
-            accounts[user] = []
-
-        for col_j in range(1, col_len + 1):
+        for col_j in range(1, col_l + 1):
             key = sheet.cell(row = 1, column = col_j).value
             val = sheet.cell(row = row_i, column = col_j).value
             post[key] = val
+
         accounts[user].append(post)
 
     return accounts
 
 def find_bots(accounts):
-    scrambled_names, freq_pstr, mny_mstk = set(), set(), set()
+    scrmbl_nms, freq_pstr, mny_mstk = set(), set(), set()
     for acc in accounts:
         user = accounts[acc]
         username = (user[0])['author']
 
-        if invalid_name(username):
-            scrambled_names.add(username)
+        if username not in scrmbl_nms and invalid_name(username):
+            scrmbl_nms.add(username)
 
-        if many_mistakes_in_text(user):
+        if username not in mny_mstk and many_mistakes_in_text(user):
             mny_mstk.add(username)
 
-        if posts_frequently(user):
+        if username not in freq_pstr and posts_frequently(user):
            freq_pstr.add(username)
-    return {'scrambled names': scrambled_names, 'frequent posters': freq_pstr, 'many mistakes': mny_mstk}
+    return {'scrambled names': scrmbl_nms, 'frequent posters': freq_pstr, 'many mistakes': mny_mstk}
 
 def posts_frequently(user_posts):
     hours, days = [], []
@@ -72,7 +72,7 @@ def many_mistakes_in_text(posts):
     return False
 
 def main():
-    path = input("Please provide the path to the file: ")
+    path = input("Please provide the path to the file: ") # please use the absolute path of the file
     sheet = int(input("Please provide the number of the sheet: "))
 
     account_list = read_xlsx(path, sheet)
